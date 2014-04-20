@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 )
 
 const debug = false
