@@ -5,10 +5,6 @@
 // while retaining a consistent way for code to
 // inspect errors to find out particular problems.
 //
-// IMPORTANT NOTE: this import path is deprecated,
-// and will be removed at some point in the future.
-// Please use github.com/juju/errgo instead.
-//
 package errors
 
 import (
