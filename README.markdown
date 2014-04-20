@@ -1,6 +1,6 @@
 # errors
 --
-    import "github.com/juju/errgo/errors"
+    import "github.com/juju/errgo"
 
 The errors package provides a way to create and diagnose errors. It is
 compatible with the usual Go error idioms but adds a way to wrap errors so that
@@ -118,8 +118,6 @@ message added as context, and allowing the cause of the underlying error to pass
 through into the result if allowed by the specific pass functions (see Mask for
 an explanation of the pass parameter).
 
-If err is nil, NoteMask returns nil.
-
 #### func  Notef
 
 ```go
@@ -128,8 +126,6 @@ func Notef(underlying error, f string, a ...interface{}) error
 Notef returns an Error that wraps the given underlying error and adds the given
 formatted context message. The returned error has no cause (use NoteMask or
 WithCausef to add a message while retaining a cause).
-
-If err is nil, Notef returns nil.
 
 #### func  WithCausef
 

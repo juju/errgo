@@ -1,11 +1,11 @@
-// The errors package provides a way to create
+// The errgo package provides a way to create
 // and diagnose errors. It is compatible with
 // the usual Go error idioms but adds a way to wrap errors
 // so that they record source location information
 // while retaining a consistent way for code to
 // inspect errors to find out particular problems.
 //
-package errors
+package errgo
 
 import (
 	"bytes"

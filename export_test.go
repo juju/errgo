@@ -1,3 +1,3 @@
-package errors
+package errgo
 
 var Match = match
