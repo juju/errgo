@@ -199,7 +199,7 @@ func setLocation(err error, callDepth int) {
 // is a drop-in replacement for errors.New from the standard library.
 func New(s string) error {
 	err := &Err{Message_: s}
-	err.SetLocation(1)
+	err.SetLocation(callerOffset)
 	return err
 }
 
@@ -301,7 +301,7 @@ func Mask(underlying error, pass ...func(error) bool) error {
 		return nil
 	}
 	err := NoteMask(underlying, "", pass...)
-	setLocation(err, 1)
+	setLocation(err, callerOffset)
 	return err
 }
 
@@ -311,7 +311,7 @@ func Mask(underlying error, pass ...func(error) bool) error {
 // or WithCausef to add a message while retaining a cause).
 func Notef(underlying error, f string, a ...interface{}) error {
 	err := NoteMask(underlying, fmt.Sprintf(f, a...))
-	setLocation(err, 1)
+	setLocation(err, callerOffset)
 	return err
 }
 
@@ -349,7 +349,7 @@ func WithCausef(underlying, cause error, f string, a ...interface{}) error {
 		Cause_:      cause,
 		Message_:    fmt.Sprintf(f, a...),
 	}
-	err.SetLocation(1)
+	err.SetLocation(callerOffset)
 	return err
 }
 
