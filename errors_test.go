@@ -28,12 +28,6 @@ func TestNewf(t *testing.T) {
 
 var someErr = errgo.New("some error")
 
-func TestWithCausef(t *testing.T) {
-	underlying := errgo.New("underlying")               //err TestWithCausef#0
-	err := errgo.WithCausef(underlying, someErr, "foo") //err TestWithCausef#1
-	checkErr(t, err, underlying, "foo: underlying", "[{$TestWithCausef#1$: foo} {$TestWithCausef#0$: underlying}]", someErr)
-}
-
 func TestMask(t *testing.T) {
 	err0 := errgo.WithCausef(nil, someErr, "foo") //err TestMask#0
 	err := errgo.Mask(err0)                       //err TestMask#1

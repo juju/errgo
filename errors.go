@@ -334,7 +334,7 @@ func MaskFunc(allow ...func(error) bool) func(error, ...func(error) bool) error 
 			allowEither = allow
 		}
 		err = Mask(err, allowEither...)
-		// setLocation(err, 0)
+		setLocation(err, 1)
 		return err
 	}
 }
