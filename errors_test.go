@@ -2,11 +2,14 @@ package errgo_test
 
 import (
 	"fmt"
-	"github.com/juju/errgo"
 	"io/ioutil"
 	"runtime"
 	"strings"
 	"testing"
+
+	gc "launchpad.net/gocheck"
+
+	"github.com/juju/errgo"
 )
 
 var (
@@ -15,14 +18,22 @@ var (
 	_ errgo.Causer     = (*errgo.Err)(nil)
 )
 
-func TestNew(t *testing.T) {
-	err := errgo.New("foo") //err TestNew
-	checkErr(t, err, nil, "foo", "[{$TestNew$: foo}]", err)
+func Test(t *testing.T) {
+	gc.TestingT(t)
 }
 
-func TestNewf(t *testing.T) {
+type errorsSuite struct{}
+
+var _ = gc.Suite(&errorsSuite{})
+
+func (*errorsSuite) TestNew(c *gc.C) {
+	err := errgo.New("foo") //err TestNew
+	checkErr(c, err, nil, "foo", "[{$TestNew$: foo}]", err)
+}
+
+func (*errorsSuite) TestNewf(c *gc.C) {
 	err := errgo.Newf("foo %d", 5) //err TestNewf
-	checkErr(t, err, nil, "foo 5", "[{$TestNewf$: foo 5}]", err)
+	checkErr(c, err, nil, "foo 5", "[{$TestNewf$: foo 5}]", err)
 }
 
 var someErr = errgo.New("some error") //err varSomeErr
@@ -38,41 +49,37 @@ func annotate2() error {
 	return err
 }
 
-func TestNoteUsage(t *testing.T) {
+func (*errorsSuite) TestNoteUsage(c *gc.C) {
 	err0 := annotate2()
 	err, ok := err0.(errgo.Wrapper)
-	if !ok {
-		t.Fatalf("expected an errgo.Wrapper got %#v", err0)
-	}
+	c.Assert(ok, gc.Equals, true)
 	underlying := err.Underlying()
 	checkErr(
-		t, err0, underlying,
+		c, err0, underlying,
 		"annotate2: annotate1: some error",
 		"[{$annotate2$: annotate2} {$annotate1$: annotate1} {$varSomeErr$: some error}]",
 		err0)
 }
 
-func TestMask(t *testing.T) {
+func (*errorsSuite) TestMask(c *gc.C) {
 	err0 := errgo.WithCausef(nil, someErr, "foo") //err TestMask#0
 	err := errgo.Mask(err0)                       //err TestMask#1
-	checkErr(t, err, err0, "foo", "[{$TestMask#1$: } {$TestMask#0$: foo}]", err)
+	checkErr(c, err, err0, "foo", "[{$TestMask#1$: } {$TestMask#0$: foo}]", err)
 
 	err = errgo.Mask(nil)
-	if err != nil {
-		t.Fatalf("expected nil got %#v", err)
-	}
+	c.Assert(err, gc.IsNil)
 }
 
-func TestNotef(t *testing.T) {
+func (*errorsSuite) TestNotef(c *gc.C) {
 	err0 := errgo.WithCausef(nil, someErr, "foo") //err TestNotef#0
 	err := errgo.Notef(err0, "bar")               //err TestNotef#1
-	checkErr(t, err, err0, "bar: foo", "[{$TestNotef#1$: bar} {$TestNotef#0$: foo}]", err)
+	checkErr(c, err, err0, "bar: foo", "[{$TestNotef#1$: bar} {$TestNotef#0$: foo}]", err)
 
 	err = errgo.Notef(nil, "bar") //err TestNotef#2
-	checkErr(t, err, nil, "bar", "[{$TestNotef#2$: bar}]", err)
+	checkErr(c, err, nil, "bar", "[{$TestNotef#2$: bar}]", err)
 }
 
-func TestMaskFunc(t *testing.T) {
+func (*errorsSuite) TestMaskFunc(c *gc.C) {
 	err0 := errgo.New("zero")
 	err1 := errgo.New("one")
 
@@ -122,6 +129,7 @@ func TestMaskFunc(t *testing.T) {
 		cause:  err1,
 	}}
 	for i, test := range tests {
+		c.Logf("test %d", i)
 		wrap := errgo.MaskFunc(test.allow0...)
 		err := wrap(test.err, test.allow1...)
 		cause := errgo.Cause(err)
@@ -129,9 +137,7 @@ func TestMaskFunc(t *testing.T) {
 		if wantCause == nil {
 			wantCause = err
 		}
-		if cause != wantCause {
-			t.Errorf("test %d. got %#v want %#v", i, cause, err)
-		}
+		c.Check(cause, gc.Equals, wantCause)
 	}
 }
 
@@ -139,42 +145,37 @@ type embed struct {
 	*errgo.Err
 }
 
-func TestCause(t *testing.T) {
-	if cause := errgo.Cause(someErr); cause != someErr {
-		t.Fatalf("expected %q kind; got %#v", someErr, cause)
-	}
+func (*errorsSuite) TestCause(c *gc.C) {
+	c.Assert(errgo.Cause(someErr), gc.Equals, someErr)
+
 	causeErr := errgo.New("cause error")
 	underlyingErr := errgo.New("underlying error")                 //err TestCause#1
 	err := errgo.WithCausef(underlyingErr, causeErr, "foo %d", 99) //err TestCause#2
-	if errgo.Cause(err) != causeErr {
-		t.Fatalf("expected %q; got %#v", causeErr, errgo.Cause(err))
-	}
-	checkErr(t, err, underlyingErr, "foo 99: underlying error", "[{$TestCause#2$: foo 99} {$TestCause#1$: underlying error}]", causeErr)
+	c.Assert(errgo.Cause(err), gc.Equals, causeErr)
+
+	checkErr(c, err, underlyingErr, "foo 99: underlying error", "[{$TestCause#2$: foo 99} {$TestCause#1$: underlying error}]", causeErr)
+
 	err = &embed{err.(*errgo.Err)}
-	if errgo.Cause(err) != causeErr {
-		t.Fatalf("expected %q; got %#v", causeErr, errgo.Cause(err))
-	}
+	c.Assert(errgo.Cause(err), gc.Equals, causeErr)
 }
 
-func TestDetails(t *testing.T) {
-	if details := errgo.Details(nil); details != "[]" {
-		t.Fatalf("errgo.Details(nil) got %q want %q", details, "[]")
-	}
+func (*errorsSuite) TestDetails(c *gc.C) {
+	c.Assert(errgo.Details(nil), gc.Equals, "[]")
 
 	otherErr := fmt.Errorf("other")
-	checkErr(t, otherErr, nil, "other", "[{other}]", otherErr)
+	checkErr(c, otherErr, nil, "other", "[{other}]", otherErr)
 
 	err0 := &embed{errgo.New("foo").(*errgo.Err)} //err TestStack#0
-	checkErr(t, err0, nil, "foo", "[{$TestStack#0$: foo}]", err0)
+	checkErr(c, err0, nil, "foo", "[{$TestStack#0$: foo}]", err0)
 
 	err1 := &embed{errgo.Notef(err0, "bar").(*errgo.Err)} //err TestStack#1
-	checkErr(t, err1, err0, "bar: foo", "[{$TestStack#1$: bar} {$TestStack#0$: foo}]", err1)
+	checkErr(c, err1, err0, "bar: foo", "[{$TestStack#1$: bar} {$TestStack#0$: foo}]", err1)
 
 	err2 := errgo.Mask(err1) //err TestStack#2
-	checkErr(t, err2, err1, "bar: foo", "[{$TestStack#2$: } {$TestStack#1$: bar} {$TestStack#0$: foo}]", err2)
+	checkErr(c, err2, err1, "bar: foo", "[{$TestStack#2$: } {$TestStack#1$: bar} {$TestStack#0$: foo}]", err2)
 }
 
-func TestMatch(t *testing.T) {
+func (*errorsSuite) TestMatch(c *gc.C) {
 	type errTest func(error) bool
 	allow := func(ss ...string) []func(error) bool {
 		fns := make([]func(error) bool, len(ss))
@@ -213,41 +214,27 @@ func TestMatch(t *testing.T) {
 	}}
 
 	for i, test := range tests {
-		ok := errgo.Match(test.err, test.fns...)
-		if ok != test.ok {
-			t.Fatalf("test %d: expected %v got %v", i, test.ok, ok)
-		}
+		c.Logf("test %d", i)
+		c.Assert(errgo.Match(test.err, test.fns...), gc.Equals, test.ok)
 	}
 }
 
-func TestLocation(t *testing.T) {
+func (*errorsSuite) TestLocation(c *gc.C) {
 	loc := errgo.Location{"foo", 35}
-	if loc.String() != "foo:35" {
-		t.Fatalf("expected \"foo:35\" got %q", loc.String)
-	}
+	c.Assert(loc.String(), gc.Equals, "foo:35")
 }
 
-func checkErr(t *testing.T, err, underlying error, msg string, details string, cause error) {
-	if err == nil {
-		t.Fatalf("err is nil; want %q", msg)
-	}
-	if err.Error() != msg {
-		t.Fatalf("unexpected message: want %q; got %q", msg, err.Error())
-	}
+func checkErr(c *gc.C, err, underlying error, msg string, details string, cause error) {
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, msg)
 	if err, ok := err.(errgo.Wrapper); ok {
-		if err.Underlying() != underlying {
-			t.Fatalf("unexpected underlying error: want %q; got %v", underlying, err.Underlying())
-		}
-	} else if underlying != nil {
-		t.Fatalf("no underlying error found; want %q", underlying)
+		c.Assert(err.Underlying(), gc.Equals, underlying)
+	} else {
+		c.Assert(underlying, gc.IsNil)
 	}
-	if errgo.Cause(err) != cause {
-		t.Fatalf("unexpected cause: want %#v; got %#v", cause, errgo.Cause(err))
-	}
+	c.Assert(errgo.Cause(err), gc.Equals, cause)
 	wantDetails := replaceLocations(details)
-	if gotDetails := errgo.Details(err); gotDetails != wantDetails {
-		t.Fatalf("unexpected details: want %q; got %q", wantDetails, gotDetails)
-	}
+	c.Assert(errgo.Details(err), gc.Equals, wantDetails)
 }
 
 func replaceLocations(s string) string {
