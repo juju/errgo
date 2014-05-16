@@ -25,7 +25,32 @@ func TestNewf(t *testing.T) {
 	checkErr(t, err, nil, "foo 5", "[{$TestNewf$: foo 5}]", err)
 }
 
-var someErr = errgo.New("some error")
+var someErr = errgo.New("some error") //err varSomeErr
+
+func annotate1() error {
+	err := errgo.Notef(someErr, "annotate1") //err annotate1
+	return err
+}
+
+func annotate2() error {
+	err := annotate1()
+	err = errgo.Notef(err, "annotate2") //err annotate2
+	return err
+}
+
+func TestNoteUsage(t *testing.T) {
+	err0 := annotate2()
+	err, ok := err0.(errgo.Wrapper)
+	if !ok {
+		t.Fatalf("expected an errgo.Wrapper got %#v", err0)
+	}
+	underlying := err.Underlying()
+	checkErr(
+		t, err0, underlying,
+		"annotate2: annotate1: some error",
+		"[{$annotate2$: annotate2} {$annotate1$: annotate1} {$varSomeErr$: some error}]",
+		err0)
+}
 
 func TestMask(t *testing.T) {
 	err0 := errgo.WithCausef(nil, someErr, "foo") //err TestMask#0
