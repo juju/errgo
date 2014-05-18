@@ -220,7 +220,7 @@ func (*errorsSuite) TestMatch(c *gc.C) {
 }
 
 func (*errorsSuite) TestLocation(c *gc.C) {
-	loc := errgo.Location{"foo", 35}
+	loc := errgo.Location{File: "foo", Line: 35}
 	c.Assert(loc.String(), gc.Equals, "foo:35")
 }
 
