@@ -10,20 +10,11 @@ package errgo
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"runtime"
-
-	"github.com/juju/loggo"
 )
 
 const debug = false
-
-var logger loggo.Logger
-
-func init() {
-	if debug {
-		logger = loggo.GetLogger("juju.errgo.errors")
-	}
-}
 
 // Location describes a source code location.
 type Location struct {
@@ -263,11 +254,11 @@ func NoteMask(underlying error, msg string, pass ...func(error) bool) error {
 	}
 	if debug {
 		if newd, oldd := newErr.Cause_, Cause(underlying); newd != oldd {
-			logger.Infof("Mask cause %[1]T(%[1]v)->%[2]T(%[2]v)", oldd, newd)
-			logger.Infof("call stack: %s", callers(0, 20))
-			logger.Infof("len(allow) == %d", len(pass))
-			logger.Infof("old error %#v", underlying)
-			logger.Infof("new error %#v", newErr)
+			log.Printf("Mask cause %[1]T(%[1]v)->%[2]T(%[2]v)", oldd, newd)
+			log.Printf("call stack: %s", callers(0, 20))
+			log.Printf("len(allow) == %d", len(pass))
+			log.Printf("old error %#v", underlying)
+			log.Printf("new error %#v", newErr)
 		}
 	}
 	return newErr
