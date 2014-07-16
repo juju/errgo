@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the LGPLv3, see LICENCE file for details.
+
 // The errors package provides a way to create
 // and diagnose errors. It is compatible with
 // the usual Go error idioms but adds a way to wrap errors
