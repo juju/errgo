@@ -50,6 +50,10 @@ type Err struct {
 	// by the Cause method.
 	Cause_ error
 
+	// TopCause_ holds the cause of the error as returned
+	// by the TopCause method.
+	TopCause_ error
+
 	// Underlying holds the underlying error, if any.
 	Underlying_ error
 
@@ -71,6 +75,11 @@ func (e *Err) Underlying() error {
 // Cause implements Causer.
 func (e *Err) Cause() error {
 	return e.Cause_
+}
+
+// TopCause implements TopCauser.
+func (e *Err) TopCause() error {
+	return e.TopCause_
 }
 
 // Message returns the top level error message.
@@ -104,6 +113,13 @@ func (e *Err) GoString() string {
 // cause has been masked).
 type Causer interface {
 	Cause() error
+}
+
+// TopCauser is the type of an error that may provide
+// an error cause for error diagnosis. TopCause may return
+// nil if there is no cause.
+type TopCauser interface {
+	TopCause() error
 }
 
 // Wrapper is the type of an error that wraps another error. It is
@@ -255,6 +271,8 @@ func NoteMask(underlying error, msg string, pass ...func(error) bool) error {
 			newErr.Cause_ = cause
 		}
 	}
+	newErr.TopCause_ = TopCause(underlying)
+
 	if debug {
 		if newd, oldd := newErr.Cause_, Cause(underlying); newd != oldd {
 			log.Printf("Mask cause %[1]T(%[1]v)->%[2]T(%[2]v)", oldd, newd)
@@ -341,6 +359,7 @@ func WithCausef(underlying, cause error, f string, a ...interface{}) error {
 	err := &Err{
 		Underlying_: underlying,
 		Cause_:      cause,
+		TopCause_:   cause,
 		Message_:    fmt.Sprintf(f, a...),
 	}
 	err.SetLocation(1)
@@ -356,6 +375,25 @@ func Cause(err error) error {
 	var diag error
 	if err, ok := err.(Causer); ok {
 		diag = err.Cause()
+	}
+	if diag != nil {
+		return diag
+	}
+	return err
+}
+
+// TopCause returns the topmost cause of the given error.  If err does not
+// implement TopCauser or its TopCause method returns nil, it returns err itself.
+//
+// TopCause is the usual way to diagnose errors that may have
+// been wrapped multiple times by Mask or NoteMask.
+//
+// A sample usage could be:
+//    if errgo.TopCause(err) == os.IsNotExist {
+func TopCause(err error) error {
+	var diag error
+	if err, ok := err.(TopCauser); ok {
+		diag = err.TopCause()
 	}
 	if diag != nil {
 		return diag
