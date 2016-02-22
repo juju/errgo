@@ -138,10 +138,13 @@ func (e *Err) GoString() string {
 }
 
 func (e Err) IsType(errType int) bool {
-	return e.ErrType == errType
+	return e.Type() == errType
 }
 
 func (e Err) Type() int {
+	if e.ErrType == 0 {
+		e.ErrType = NO_TYPE
+	}
 	return e.ErrType
 }
 
@@ -313,6 +316,7 @@ func NoteMask(underlying error, msg string, pass ...func(error) bool) error {
 	newErr := &Err{
 		Underlying_: underlying,
 		Message_:    msg,
+		ErrType:     NO_TYPE,
 	}
 	if len(pass) > 0 {
 		if cause := Cause(underlying); match(cause, pass...) {
@@ -355,22 +359,36 @@ func NoteMask(underlying error, msg string, pass ...func(error) bool) error {
 // error received from elsewhere.
 //
 func Mask(underlying error, pass ...func(error) bool) error {
-	if underlying == nil {
-		return nil
-	}
 	err := NoteMask(underlying, "", pass...)
-	setLocation(err, 1)
-	return err
+	errg := err.(*Err)
+	errg.SetLocation(1)
+	return errg
 }
 
 // Notef returns an Error that wraps the given underlying
 // error and adds the given formatted context message.
 // The returned error has no cause (use NoteMask
 // or WithCausef to add a message while retaining a cause).
-func Notef(underlying error, f string, a ...interface{}) error {
-	err := NoteMask(underlying, fmt.Sprintf(f, a...))
-	setLocation(err, 1)
-	return err
+func Notef(underlying error, e interface{}, a ...interface{}) error {
+	var err error
+	var errType int
+	if eType, ok := e.(int); ok {
+		errs.RLock()
+		defer errs.RUnlock()
+		er := errs.m[eType]
+
+		err = NoteMask(underlying, fmt.Sprintf(er.str, a...))
+		errType = eType
+
+	} else {
+		err = NoteMask(underlying, fmt.Sprintf(e.(string), a...))
+		errType = NO_TYPE
+	}
+
+	errg := err.(*Err)
+	errg.SetLocation(1)
+	errg.ErrType = errType
+	return errg
 }
 
 // MaskFunc returns an equivalent of Mask that always allows the
@@ -392,8 +410,9 @@ func MaskFunc(allow ...func(error) bool) func(error, ...func(error) bool) error 
 			allowEither = allow
 		}
 		err = Mask(err, allowEither...)
-		setLocation(err, 1)
-		return err
+		errg := err.(*Err)
+		errg.SetLocation(1)
+		return errg
 	}
 }
 
@@ -401,12 +420,24 @@ func MaskFunc(allow ...func(error) bool) func(error, ...func(error) bool) error 
 // (possibly nil) underlying error and associates it with
 // the given cause. The given formatted message context
 // will also be added.
-func WithCausef(underlying, cause error, f string, a ...interface{}) error {
+func WithCausef(underlying, cause error, e interface{}, a ...interface{}) error {
 	err := &Err{
 		Underlying_: underlying,
 		Cause_:      cause,
-		Message_:    fmt.Sprintf(f, a...),
 	}
+
+	if eType, ok := e.(int); ok {
+		errs.RLock()
+		defer errs.RUnlock()
+		er := errs.m[eType]
+
+		err.Message_ = fmt.Sprintf(er.str, a...)
+		err.ErrType = eType
+	} else {
+		err.Message_ = fmt.Sprintf(e.(string), a...)
+		err.ErrType = NO_TYPE
+	}
+
 	err.SetLocation(1)
 	return err
 }
