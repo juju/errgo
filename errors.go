@@ -15,9 +15,45 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"sync"
 )
 
-const debug = false
+const (
+	debug   = false
+	NO_TYPE = -1
+)
+
+var (
+	errs errMap
+)
+
+func init() {
+	errs = errMap{
+		m: make(map[int]errMsg),
+	}
+}
+
+type errMap struct {
+	// Map between error types, and their assosciated error
+	m map[int]errMsg
+	sync.RWMutex
+}
+
+type errMsg struct {
+	// Error type
+	errType int
+	// error string
+	str string
+}
+
+func Register(errType int, str string) {
+	errs.Lock()
+	defer errs.Unlock()
+	errs.m[errType] = errMsg{
+		errType: errType,
+		str:     str,
+	}
+}
 
 // Location describes a source code location.
 type Location struct {
@@ -56,6 +92,9 @@ type Err struct {
 	// Location holds the source code location where the error was
 	// created.
 	Location_ Location
+
+	// Error type
+	ErrType int
 }
 
 // Location implements Locationer.
@@ -96,6 +135,14 @@ func (e *Err) Error() string {
 // produce useful information.
 func (e *Err) GoString() string {
 	return Details(e)
+}
+
+func (e Err) IsType(errType int) bool {
+	return e.ErrType == errType
+}
+
+func (e Err) Type() int {
+	return e.ErrType
 }
 
 // Causer is the type of an error that may provide
@@ -191,16 +238,33 @@ func setLocation(err error, callDepth int) {
 
 // New returns a new error with the given error message and no cause. It
 // is a drop-in replacement for errors.New from the standard library.
-func New(s string) error {
-	err := &Err{Message_: s}
+func New(e interface{}) error {
+	if eType, ok := e.(int); ok {
+		errs.RLock()
+		defer errs.RUnlock()
+		er := errs.m[eType]
+		err := &Err{ErrType: eType, Message_: er.str}
+		err.SetLocation(1)
+		return err
+	}
+	err := &Err{ErrType: NO_TYPE, Message_: e.(string)}
 	err.SetLocation(1)
 	return err
 }
 
 // Newf returns a new error with the given printf-formatted error
 // message and no cause.
-func Newf(f string, a ...interface{}) error {
-	err := &Err{Message_: fmt.Sprintf(f, a...)}
+func Newf(e interface{}, a ...interface{}) error {
+	if eType, ok := e.(int); ok {
+		errs.RLock()
+		defer errs.RUnlock()
+		er := errs.m[eType]
+		err := &Err{ErrType: eType, Message_: fmt.Sprintf(er.str, a...)}
+		err.SetLocation(1)
+		return err
+	}
+
+	err := &Err{ErrType: NO_TYPE, Message_: fmt.Sprintf(e.(string), a...)}
 	err.SetLocation(1)
 	return err
 }
