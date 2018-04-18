@@ -85,7 +85,7 @@ func (e *Err) Message() string {
 // Error implements error.Error.
 func (e *Err) Error() string {
 	switch {
-	case e.Message_ == "" && e.Underlying == nil:
+	case e.Message_ == "" && e.Underlying_ == nil:
 		return "<no error>"
 	case e.Message_ == "":
 		return e.Underlying_.Error()
